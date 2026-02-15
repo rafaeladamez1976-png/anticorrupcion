@@ -37,7 +37,7 @@ export default function HomePage() {
           <div className="inline-block px-4 py-1.5 bg-blue-50 text-blue-700 rounded-full text-sm font-black mb-6 uppercase tracking-widest border border-blue-100">
             Plataforma 100% Segura y Anónima
           </div>
-          <h2 className="text-4xl md:text-6xl font-black text-gray-900 mb-8 leading-tight">
+          <h2 className="text-4xl md:text-6xl font-black text-white mb-8 leading-tight">
             Tú denuncias, <span className="text-blue-600 underline decoration-blue-200 decoration-8 underline-offset-8">nosotros analizamos</span>.<br />
             Sinaloa avanza.
           </h2>

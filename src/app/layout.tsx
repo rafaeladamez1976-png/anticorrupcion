@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
+
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Sistema Anticorrupción Sinaloa",
-  description: "Plataforma ciudadana de denuncia anónima contra la corrupción con análisis inteligente de verosimilitud",
+  description: "Plataforma Ciudadana de Denuncia Anónima - Sinaloa, México",
 };
 
 export default function RootLayout({
@@ -13,9 +16,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
-      <body className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 text-white">
-        {children}
-      </body>
+      <body className={inter.className}>{children}</body>
     </html>
   );
 }
