@@ -28,68 +28,24 @@ export default function DenunciasListPage() {
     const router = useRouter();
 
     useEffect(() => {
-        cargarDatosMock();
+        cargarDatos();
     }, []);
 
-    const cargarDatosMock = () => {
-        setDenuncias([
-            {
-                id: '1',
-                codigo_unico: 'DX-1234',
-                municipio: 'Culiacán',
-                tipo: 'Soborno',
-                descripcion: 'Se solicita dinero para agilizar trámite de construcción.',
-                score_verosimilitud: 92,
-                nivel_verosimilitud: 'CRÍTICA',
-                estado: 'en_analisis',
-                created_at: new Date().toISOString()
-            },
-            {
-                id: '2',
-                codigo_unico: 'DX-5678',
-                municipio: 'Mazatlán',
-                tipo: 'Desvío de Fondos',
-                descripcion: 'Uso indebido de recursos públicos en obra municipal.',
-                score_verosimilitud: 85,
-                nivel_verosimilitud: 'ALTA',
-                estado: 'pendiente',
-                created_at: new Date().toISOString()
-            },
-            {
-                id: '3',
-                codigo_unico: 'DX-9012',
-                municipio: 'Ahome',
-                tipo: 'Abuso de Autoridad',
-                descripcion: 'Detención arbitraria y solicitud de dádiva.',
-                score_verosimilitud: 45,
-                nivel_verosimilitud: 'MEDIA',
-                estado: 'en_analisis',
-                created_at: new Date().toISOString()
-            },
-            {
-                id: '4',
-                codigo_unico: 'DX-1122',
-                municipio: 'Guasave',
-                tipo: 'Nepotismo',
-                descripcion: 'Contratación directa de familiares en oficina local.',
-                score_verosimilitud: 78,
-                nivel_verosimilitud: 'ALTA',
-                estado: 'pendiente',
-                created_at: new Date().toISOString()
-            },
-            {
-                id: '5',
-                codigo_unico: 'DX-3344',
-                municipio: 'Navolato',
-                tipo: 'Extorsión',
-                descripcion: 'Cobro de piso por parte de inspectores.',
-                score_verosimilitud: 95,
-                nivel_verosimilitud: 'CRÍTICA',
-                estado: 'en_analisis',
-                created_at: new Date().toISOString()
+    const cargarDatos = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('denuncias')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (data && !error) {
+                setDenuncias(data as DenunciaCompleta[]);
             }
-        ]);
-        setLoading(false);
+        } catch (error) {
+            console.error('Error al cargar denuncias:', error);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const cerrarSesion = async () => {
@@ -176,8 +132,8 @@ export default function DenunciasListPage() {
                                         key={nivel}
                                         onClick={() => setFiltroNivel(nivel)}
                                         className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${filtroNivel === nivel
-                                                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
-                                                : 'text-gray-400 hover:text-gray-600'
+                                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
+                                            : 'text-gray-400 hover:text-gray-600'
                                             }`}
                                     >
                                         {nivel === 'todas' ? 'Todas' : nivel}

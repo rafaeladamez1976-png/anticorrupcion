@@ -36,64 +36,45 @@ export default function AdminDashboardPage() {
     const router = useRouter();
 
     useEffect(() => {
-        // MOCK AUTH BYPASS
-        setLoading(false);
-        cargarDatosMock();
+        cargarDatos();
     }, []);
 
-    const cargarDatosMock = () => {
-        setStats({
-            total: 12,
-            criticas: 3,
-            altas: 5,
-            enAnalisis: 4
-        });
-
-        setDenuncias([
-            {
-                id: '1',
-                codigo_unico: 'DX-1234',
-                municipio: 'Culiacán',
-                tipo: 'Soborno',
-                descripcion: 'Test mock 1',
-                score_verosimilitud: 92,
-                nivel_verosimilitud: 'CRÍTICA',
-                estado: 'en_analisis',
-                created_at: new Date().toISOString()
-            },
-            {
-                id: '2',
-                codigo_unico: 'DX-5678',
-                municipio: 'Mazatlán',
-                tipo: 'Desvío de Fondos',
-                descripcion: 'Test mock 2',
-                score_verosimilitud: 85,
-                nivel_verosimilitud: 'ALTA',
-                estado: 'pendiente',
-                created_at: new Date().toISOString()
-            },
-            {
-                id: '3',
-                codigo_unico: 'DX-9012',
-                municipio: 'Ahome',
-                tipo: 'Abuso de Autoridad',
-                descripcion: 'Test mock 3',
-                score_verosimilitud: 45,
-                nivel_verosimilitud: 'MEDIA',
-                estado: 'en_analisis',
-                created_at: new Date().toISOString()
-            }
-        ]);
-        setLoading(false);
-    };
-
-    const verificarAuth = async () => {
-        setLoading(false);
-        cargarDatosMock();
-    };
-
     const cargarDatos = async () => {
-        cargarDatosMock();
+        try {
+            // Cargar estadísticas desde la API
+            const statsRes = await fetch('/api/admin/estadisticas');
+            const statsData = await statsRes.json();
+            setStats({
+                total: statsData.total || 0,
+                criticas: statsData.criticas || 0,
+                altas: statsData.alta || 0,
+                enAnalisis: statsData.enAnalisis || 0
+            });
+
+            // Cargar denuncias directamente de Supabase
+            const { data, error } = await supabase
+                .from('denuncias')
+                .select('id, codigo_unico, municipio, tipo_corrupcion, tipo, institucion, descripcion, score_verosimilitud, nivel_verosimilitud, estado, created_at')
+                .order('created_at', { ascending: false })
+                .limit(20);
+
+            if (!error && data) {
+                setDenuncias(data.map((d: Record<string, unknown>) => ({
+                    codigo_unico: d.codigo_unico as string,
+                    municipio: d.municipio as string,
+                    tipo: (d.tipo_corrupcion || d.tipo || 'General') as string,
+                    descripcion: d.descripcion as string,
+                    score_verosimilitud: d.score_verosimilitud as number,
+                    nivel_verosimilitud: d.nivel_verosimilitud as string,
+                    estado: d.estado as string,
+                    created_at: d.created_at as string,
+                })));
+            }
+        } catch (err) {
+            console.error('Error cargando datos:', err);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const cerrarSesion = async () => {
@@ -283,6 +264,7 @@ function StatsCard({ label, value, icon, color }: { label: string, value: number
                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{label}</p>
                 <p className="text-4xl font-black text-gray-900 leading-none">{value}</p>
             </div>
+            {/* Subtle patterns could go here */}
         </div>
     );
 }

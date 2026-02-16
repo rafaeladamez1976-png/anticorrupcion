@@ -32,57 +32,43 @@ export default function DenunciaDetailPage() {
 
     const cargarDenuncia = async () => {
         setLoading(true);
-        // MOCK DETAIL LOADING
-        setTimeout(() => {
-            const mockDenuncias: Record<string, any> = {
-                '1': {
-                    id: '1',
-                    codigo_unico: 'DX-1234',
-                    municipio: 'Culiacán',
-                    tipo: 'Soborno',
-                    descripcion: 'Se solicita dinero para agilizar trámite de construcción en la zona centro. El funcionario indicó que sin el pago el permiso tardaría 6 meses más.',
-                    score_verosimilitud: 92,
-                    nivel_verosimilitud: 'CRÍTICA',
-                    estado: 'en_analisis',
-                    created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString(),
-                    institucion: 'Secretaría de Obras Públicas',
-                    fecha_hechos: '2024-02-10',
-                    senales_positivas: ['Relato detallado', 'Ubicación precisa', 'Coherencia institucional'],
-                    senales_negativas: [],
-                    analisis_ia: 'El reporte presenta un alto nivel de detalle narrativo y técnico que coincide con los procedimientos operativos de la institución mencionada.'
-                },
-                '2': {
-                    id: '2',
-                    codigo_unico: 'DX-5678',
-                    municipio: 'Mazatlán',
-                    tipo: 'Desvío de Fondos',
-                    descripcion: 'Uso indebido de recursos en la remodelación del malecón.',
-                    score_verosimilitud: 85,
-                    nivel_verosimilitud: 'ALTA',
-                    estado: 'pendiente',
-                    created_at: new Date().toISOString(),
-                    institucion: 'Ayuntamiento de Mazatlán',
-                    fecha_hechos: '2024-01-20',
-                    senales_positivas: ['Mención de proyecto específico'],
-                    senales_negativas: ['Faltan nombres específicos'],
-                    analisis_ia: 'La denuncia es verosímil pero requiere mayor aporte probatorio para confirmar el desvío.'
-                }
-            };
+        try {
+            const { data, error } = await supabase
+                .from('denuncias')
+                .select('*')
+                .eq('id', id)
+                .single();
 
-            const data = mockDenuncias[id as string] || mockDenuncias['1'];
-            setDenuncia(data);
-            setNuevoEstado(data.estado);
+            if (data && !error) {
+                setDenuncia(data);
+                setNuevoEstado(data.estado);
+            } else {
+                setDenuncia(null);
+            }
+        } catch (error) {
+            console.error('Error loading denuncia:', error);
+            setDenuncia(null);
+        } finally {
             setLoading(false);
-        }, 800);
+        }
     };
 
     const actualizarEstado = async () => {
         setSaving(true);
-        setTimeout(() => {
-            setDenuncia({ ...denuncia, estado: nuevoEstado });
+        try {
+            const { error } = await supabase
+                .from('denuncias')
+                .update({ estado: nuevoEstado })
+                .eq('id', id);
+
+            if (!error) {
+                setDenuncia({ ...denuncia, estado: nuevoEstado });
+            }
+        } catch (error) {
+            console.error('Error updating status:', error);
+        } finally {
             setSaving(false);
-        }, 1000);
+        }
     };
 
     if (loading) return (
