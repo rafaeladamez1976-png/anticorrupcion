@@ -100,6 +100,7 @@ function calcularScore(denuncia: any) {
     }
 
     // 3. Estructura Narrativa (0-20)
+    // (Simulación de análisis de estructura: sujeto, acción, lugar)
     const palabrasClave = ['dinero', 'pago', 'exigió', 'amenazó', 'favores', 'nepotismo'];
     const conteoClaves = palabrasClave.filter(p => denuncia.descripcion?.toLowerCase().includes(p)).length;
     if (conteoClaves >= 2) {
@@ -110,7 +111,8 @@ function calcularScore(denuncia: any) {
     }
 
     // 4. Plausibilidad Institucional (0-30)
-    score += 20;
+    // En un sistema real, aquí se compararía con una base de datos de instituciones y puestos
+    score += 20; // Base por coherencia general
 
     // Ajuste final
     score = Math.min(100, score);
