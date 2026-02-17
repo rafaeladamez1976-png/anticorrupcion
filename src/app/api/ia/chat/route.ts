@@ -47,8 +47,16 @@ export async function POST(request: Request) {
         });
 
         // Convertir formato de mensajes de la app al formato de Gemini
-        // Gemini espera un historial separado del mensaje actual
-        const history = messages.slice(0, -1).map(m => ({
+        // Gemini REQUIERE que el primer mensaje del historial sea del usuario ('user')
+        // Filtramos el mensaje de bienvenida inicial si es el primero
+        const historyMessages = messages.slice(0, -1);
+        let validHistory = historyMessages;
+
+        if (historyMessages.length > 0 && historyMessages[0].role !== 'user') {
+            validHistory = historyMessages.slice(1);
+        }
+
+        const history = validHistory.map(m => ({
             role: m.role === 'user' ? 'user' : 'model',
             parts: [{ text: m.content }],
         }));
