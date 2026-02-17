@@ -20,12 +20,13 @@ export async function POST(request: Request) {
     try {
         const { messages, denunciaData }: { messages: Message[], denunciaData: DenunciaData } = await request.json();
 
-        // Configurar el modelo - Usamos gemini-pro que es más estable
+        // Configurar el modelo - Usamos gemini-1.5-flash explícito
         const model = genAI.getGenerativeModel({ 
-            model: 'gemini-pro',
+            model: 'gemini-1.5-flash',
         });
 
-        const prompt = `
+        // Prompt del sistema como texto para evitar problemas de versión de API
+        const systemPrompt = `
             Eres el Asistente del Sistema Anticorrupción de Sinaloa. Tu objetivo es ayudar al ciudadano a estructurar una denuncia clara y detallada de manera anónima.
             
             FLUJO DE TRABAJO:
@@ -60,32 +61,34 @@ export async function POST(request: Request) {
             role: m.role === 'user' ? 'user' : 'model',
             parts: [{ text: m.content }],
         }));
-        
-        // Añadimos el prompt del sistema como el primer mensaje del usuario para darle contexto
-        // ya que gemini-pro no soporta systemInstruction en todas las versiones
+
+        // Inyectamos el system prompt al inicio del historial de forma manual
+        // para garantizar compatibilidad con modelos que no soportan systemInstruction
         if (history.length === 0) {
-            history.push({
-                role: 'user',
-                parts: [{ text: prompt }]
-            });
-            // Añadimos una respuesta ficticia del modelo para mantener el turno
-            history.push({
-                role: 'model',
-                parts: [{ text: 'Entendido. Estoy listo para ayudarle con su denuncia anónima.' }]
-            });
-        } else {
-             // Si ya hay historia, inyectamos el prompt en el último mensaje de usuario o como uno nuevo
-             // Para simplificar, lo concatenamos al mensaje actual
+           // Si es el primer mensaje, no hacemos nada aquí, el prompt se pegará al mensaje actual
         }
 
         const currentMessage = messages[messages.length - 1].content;
-        const msgToSend = history.length > 0 ? currentMessage : `${prompt}\n\nUsuario dice: ${currentMessage}`;
+        
+        // Construimos el mensaje final combinando instrucciones y entrada del usuario
+        // Esta es la forma más robusta de "fingir" un system prompt en modelos básicos
+        const combinedMessage = `
+            ${systemPrompt}
+            
+            --------------------------------------------------
+            HISTORIAL DE CHAT PREVIO (Contexto):
+            ${history.map(m => `${m.role.toUpperCase()}: ${m.parts[0].text}`).join('\n')}
+            --------------------------------------------------
+            
+            MENSAJE ACTUAL DEL CIUDADANO:
+            ${currentMessage}
+            
+            TU RESPUESTA:
+        `;
 
-        const chat = model.startChat({
-            history: history.length > 0 ? history : undefined,
-        });
-
-        const result = await chat.sendMessage(msgToSend);
+        // Usamos generateContent en lugar de startChat para control total del contexto
+        // Esto evita errores de "role order" en el historial nativo
+        const result = await model.generateContent(combinedMessage);
         const response = await result.response;
         const aiResponse = response.text();
 
