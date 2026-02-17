@@ -83,10 +83,18 @@ export async function POST(request: Request) {
             } : null
         });
 
-    } catch (error) {
+    } catch (error: any) {
         console.error('Gemini Error:', error);
+        
+        // Extract specific error details
+        const errorMessage = error.message || 'Error desconocido';
+        const errorType = error.constructor.name || 'Error';
+        
         return NextResponse.json(
-            { message: 'Hubo un error al procesar su mensaje con Google Gemini. Por favor intente de nuevo.' },
+            { 
+                message: `Hubo un error al procesar su mensaje con Google Gemini. Detalle técnico: ${errorType} - ${errorMessage}`,
+                error: errorMessage
+            },
             { status: 500 }
         );
     }
