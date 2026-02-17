@@ -1,18 +1,20 @@
 import { NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import Anthropic from '@anthropic-ai/sdk';
 import { Message, DenunciaData } from '@/types';
 
 export const dynamic = 'force-dynamic';
 
-// Inicializar Google AI
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+// Inicializar Anthropic (Claude)
+const anthropic = new Anthropic({
+    apiKey: process.env.ANTHROPIC_API_KEY || '',
+});
 
 export async function POST(request: Request) {
     // Verificar si la API Key está configurada
-    if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'your-gemini-api-key') {
-        console.error('CRITICAL: GEMINI_API_KEY is not configured.');
+    if (!process.env.ANTHROPIC_API_KEY) {
+        console.error('CRITICAL: ANTHROPIC_API_KEY is not configured.');
         return NextResponse.json(
-            { message: 'Error de configuración: La clave de Google Gemini no está configurada. Por favor, agregue GEMINI_API_KEY en las variables de entorno de Vercel.' },
+            { message: 'Error de configuración: La clave de Anthropic no está configurada. Por favor, agregue ANTHROPIC_API_KEY en las variables de entorno de Vercel.' },
             { status: 500 }
         );
     }
@@ -20,12 +22,6 @@ export async function POST(request: Request) {
     try {
         const { messages, denunciaData }: { messages: Message[], denunciaData: DenunciaData } = await request.json();
 
-        // Configurar el modelo - Usamos gemini-pro que es más estable
-        const model = genAI.getGenerativeModel({ 
-            model: 'gemini-pro',
-        });
-
-        // Prompt del sistema como texto para evitar problemas de versión de API
         const systemPrompt = `
             Eres el Asistente del Sistema Anticorrupción de Sinaloa. Tu objetivo es ayudar al ciudadano a estructurar una denuncia clara y detallada de manera anónima.
             
@@ -48,53 +44,29 @@ export async function POST(request: Request) {
             - Descripción: ${denunciaData.descripcion ? 'Proporcionada' : 'Pendiente'}
         `;
 
-        // Gemini REQUIERE que el primer mensaje del historial sea del usuario ('user')
-        // Filtramos el mensaje de bienvenida inicial si es el primero
-        const historyMessages = messages.slice(0, -1);
-        let validHistory = historyMessages;
+        // Formatear mensajes para Claude
+        // Claude espera roles 'user' y 'assistant'.
+        // Filtramos mensajes vacíos o inválidos si los hubiera.
+        const apiMessages = messages.map(m => ({
+            role: m.role === 'user' ? 'user' : 'assistant',
+            content: m.content
+        })) as any[];
 
-        if (historyMessages.length > 0 && historyMessages[0].role !== 'user') {
-            validHistory = historyMessages.slice(1);
-        }
+        const response = await anthropic.messages.create({
+            model: "claude-3-5-sonnet-20240620",
+            max_tokens: 1024,
+            system: systemPrompt,
+            messages: apiMessages,
+        });
 
-        const history = validHistory.map(m => ({
-            role: m.role === 'user' ? 'user' : 'model',
-            parts: [{ text: m.content }],
-        }));
+        // Obtener la respuesta de texto (asumiendo que es un bloque de texto)
+        const contentBlock = response.content[0];
+        const aiResponse = contentBlock.type === 'text' ? contentBlock.text : '';
 
-        // Inyectamos el system prompt al inicio del historial de forma manual
-        // para garantizar compatibilidad con modelos que no soportan systemInstruction
-        if (history.length === 0) {
-           // Si es el primer mensaje, no hacemos nada aquí, el prompt se pegará al mensaje actual
-        }
-
-        const currentMessage = messages[messages.length - 1].content;
-        
-        // Construimos el mensaje final combinando instrucciones y entrada del usuario
-        // Esta es la forma más robusta de "fingir" un system prompt en modelos básicos
-        const combinedMessage = `
-            ${systemPrompt}
-            
-            --------------------------------------------------
-            HISTORIAL DE CHAT PREVIO (Contexto):
-            ${history.map(m => `${m.role.toUpperCase()}: ${m.parts[0].text}`).join('\n')}
-            --------------------------------------------------
-            
-            MENSAJE ACTUAL DEL CIUDADANO:
-            ${currentMessage}
-            
-            TU RESPUESTA:
-        `;
-
-        // Usamos generateContent en lugar de startChat para control total del contexto
-        // Esto evita errores de "role order" en el historial nativo
-        const result = await model.generateContent(combinedMessage);
-        const response = await result.response;
-        const aiResponse = response.text();
-
-        // Lógica de extracción (Heurística simple)
+        // Lógica de extracción (Heurística simple que ya funcionaba)
+        // Se mantiene igual para no romper la lógica de cliente
         const updatedData = { ...denunciaData };
-        const lastUserMessage = currentMessage;
+        const lastUserMessage = messages[messages.length - 1].content;
 
         if (!updatedData.municipio && lastUserMessage.length < 30) updatedData.municipio = lastUserMessage;
         else if (!updatedData.institucion && updatedData.municipio) updatedData.institucion = lastUserMessage;
@@ -113,16 +85,12 @@ export async function POST(request: Request) {
         });
 
     } catch (error: any) {
-        console.error('Gemini Error:', error);
-        
-        // Extract specific error details
-        const errorMessage = error.message || 'Error desconocido';
-        const errorType = error.constructor.name || 'Error';
+        console.error('Anthropic Error:', error);
         
         return NextResponse.json(
             { 
-                message: `Hubo un error al procesar su mensaje con Google Gemini. Detalle técnico: ${errorType} - ${errorMessage}`,
-                error: errorMessage
+                message: `Hubo un error al procesar su mensaje con Claude. Detalle: ${error.message}`,
+                error: error.message
             },
             { status: 500 }
         );
