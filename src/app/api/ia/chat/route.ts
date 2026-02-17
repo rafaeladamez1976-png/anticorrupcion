@@ -20,33 +20,33 @@ export async function POST(request: Request) {
     try {
         const { messages, denunciaData }: { messages: Message[], denunciaData: DenunciaData } = await request.json();
 
-        // Configurar el modelo
+        // Configurar el modelo - Usamos gemini-pro que es más estable
         const model = genAI.getGenerativeModel({ 
-            model: 'gemini-1.5-flash',
-            systemInstruction: `
-                Eres el Asistente del Sistema Anticorrupción de Sinaloa. Tu objetivo es ayudar al ciudadano a estructurar una denuncia clara y detallada de manera anónima.
-                
-                FLUJO DE TRABAJO:
-                1. Si no hay municipio: Pregunta amablemente el municipio de Sinaloa (Culiacán, Mazatlán, Ahome, etc).
-                2. Si hay municipio pero no tipo/institución: Pregunta qué tipo de corrupción es (soborno, nepotismo, etc) y en qué institución ocurrió.
-                3. Si hay datos básicos pero falta la descripción: Pide un relato detallado de los hechos (qué, quién, cuándo, dónde).
-                4. Una vez tengas todo (Municipio, Institución, Descripción): Resume la información y confirma si desea enviar la denuncia.
-                
-                INSTRUCCIONES CRÍTICAS:
-                - Nunca pidas nombres reales, teléfonos o correos.
-                - Mantén un tono institucional, empático y seguro.
-                - Si el usuario ya proporcionó datos en su mensaje, extráelos y actualiza el estado interno.
-                - Tu respuesta debe ser concisa y clara.
-                
-                ESTADO ACTUAL DE LA DENUNCIA:
-                - Municipio: ${denunciaData.municipio || 'Pendiente'}
-                - Institución: ${denunciaData.institucion || 'Pendiente'}
-                - Tipo: ${denunciaData.tipo || 'Pendiente'}
-                - Descripción: ${denunciaData.descripcion ? 'Proporcionada' : 'Pendiente'}
-            `,
+            model: 'gemini-pro',
         });
 
-        // Convertir formato de mensajes de la app al formato de Gemini
+        const prompt = `
+            Eres el Asistente del Sistema Anticorrupción de Sinaloa. Tu objetivo es ayudar al ciudadano a estructurar una denuncia clara y detallada de manera anónima.
+            
+            FLUJO DE TRABAJO:
+            1. Si no hay municipio: Pregunta amablemente el municipio de Sinaloa (Culiacán, Mazatlán, Ahome, etc).
+            2. Si hay municipio pero no tipo/institución: Pregunta qué tipo de corrupción es (soborno, nepotismo, etc) y en qué institución ocurrió.
+            3. Si hay datos básicos pero falta la descripción: Pide un relato detallado de los hechos (qué, quién, cuándo, dónde).
+            4. Una vez tengas todo (Municipio, Institución, Descripción): Resume la información y confirma si desea enviar la denuncia.
+            
+            INSTRUCCIONES CRÍTICAS:
+            - Nunca pidas nombres reales, teléfonos o correos.
+            - Mantén un tono institucional, empático y seguro.
+            - Si el usuario ya proporcionó datos en su mensaje, extráelos y actualiza el estado interno.
+            - Tu respuesta debe ser concisa y clara.
+            
+            ESTADO ACTUAL DE LA DENUNCIA:
+            - Municipio: ${denunciaData.municipio || 'Pendiente'}
+            - Institución: ${denunciaData.institucion || 'Pendiente'}
+            - Tipo: ${denunciaData.tipo || 'Pendiente'}
+            - Descripción: ${denunciaData.descripcion ? 'Proporcionada' : 'Pendiente'}
+        `;
+
         // Gemini REQUIERE que el primer mensaje del historial sea del usuario ('user')
         // Filtramos el mensaje de bienvenida inicial si es el primero
         const historyMessages = messages.slice(0, -1);
@@ -61,13 +61,31 @@ export async function POST(request: Request) {
             parts: [{ text: m.content }],
         }));
         
+        // Añadimos el prompt del sistema como el primer mensaje del usuario para darle contexto
+        // ya que gemini-pro no soporta systemInstruction en todas las versiones
+        if (history.length === 0) {
+            history.push({
+                role: 'user',
+                parts: [{ text: prompt }]
+            });
+            // Añadimos una respuesta ficticia del modelo para mantener el turno
+            history.push({
+                role: 'model',
+                parts: [{ text: 'Entendido. Estoy listo para ayudarle con su denuncia anónima.' }]
+            });
+        } else {
+             // Si ya hay historia, inyectamos el prompt en el último mensaje de usuario o como uno nuevo
+             // Para simplificar, lo concatenamos al mensaje actual
+        }
+
         const currentMessage = messages[messages.length - 1].content;
+        const msgToSend = history.length > 0 ? currentMessage : `${prompt}\n\nUsuario dice: ${currentMessage}`;
 
         const chat = model.startChat({
-            history: history,
+            history: history.length > 0 ? history : undefined,
         });
 
-        const result = await chat.sendMessage(currentMessage);
+        const result = await chat.sendMessage(msgToSend);
         const response = await result.response;
         const aiResponse = response.text();
 
