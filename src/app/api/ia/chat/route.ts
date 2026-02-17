@@ -20,9 +20,9 @@ export async function POST(request: Request) {
     try {
         const { messages, denunciaData }: { messages: Message[], denunciaData: DenunciaData } = await request.json();
 
-        // Configurar el modelo - Usamos gemini-1.5-flash explícito
+        // Configurar el modelo - Usamos gemini-pro que es más estable
         const model = genAI.getGenerativeModel({ 
-            model: 'gemini-1.5-flash',
+            model: 'gemini-pro',
         });
 
         // Prompt del sistema como texto para evitar problemas de versión de API
