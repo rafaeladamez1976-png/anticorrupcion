@@ -9,6 +9,9 @@ const anthropic = new Anthropic({
     apiKey: process.env.ANTHROPIC_API_KEY || '',
 });
 
+// Log server-side initialization (for debugging Vercel logs)
+console.log('AI Route Initialized. Key configured:', !!process.env.ANTHROPIC_API_KEY);
+
 export async function POST(request: Request) {
     // Verificar si la API Key está configurada
     if (!process.env.ANTHROPIC_API_KEY) {
